@@ -1,0 +1,30 @@
+[
+  {
+    "type": "maintenance_kick",
+    "player": "GoodCaller",
+    "details": "Non-allowlisted player kicked during maintenance mode",
+    "timestamp": 1753817860847,
+    "severity": "medium"
+  },
+  {
+    "type": "maintenance_kick",
+    "player": "GoodCaller",
+    "details": "Non-allowlisted player kicked during maintenance mode",
+    "timestamp": 1753820113189,
+    "severity": "medium"
+  },
+  {
+    "type": "maintenance_kick",
+    "player": "GoodCaller",
+    "details": "Non-allowlisted player kicked during maintenance mode",
+    "timestamp": 1753820692322,
+    "severity": "medium"
+  },
+  {
+    "type": "maintenance_kick",
+    "player": "GoodCaller",
+    "details": "Non-allowlisted player kicked during maintenance mode",
+    "timestamp": 1753820924535,
+    "severity": "medium"
+  }
+]

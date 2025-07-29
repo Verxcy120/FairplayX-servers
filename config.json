@@ -1,0 +1,111 @@
+{
+  "botToken": "YOUR_BOT_TOKEN_HERE",
+  "clientId": "YOUR_CLIENT_ID_HERE",
+  "username": "Your Bot Name",
+  "servers": [
+    {
+      "serverName": "Your Server Name",
+      "host": "YOUR_SERVER_IP",
+      "port": 19132,
+      "logChannels": {
+        "chat": null,
+        "kicks": null,
+        "joinsAndLeaves": null
+      },
+      "modules": {
+        "deviceFilter": true
+      }
+    }
+  ],
+  "admins": [],
+  "whitelist": [],
+  "bannedDevices": [
+    "Windows",
+    "Android",
+    "iOS",
+    "WindowsPhone",
+    "Win32",
+    "Dedicated"
+  ],
+  "altSystem": {
+    "maxGamerScore": 0,
+    "maxFriends": 0,
+    "maxFollowers": 0
+  },
+  "bannedPlayers": [],
+  "playerStats": {},
+  "playerNotes": {},
+  "allowlist": [],
+  "maintenanceMode": {
+    "enabled": false,
+    "enabledBy": "",
+    "enabledAt": 0,
+    "reason": ""
+  },
+  "rewardsConfig": {
+    "enabled": true,
+    "milestones": [
+      {
+        "timeMinutes": 60,
+        "reward": "rank:Newcomer",
+        "description": "Played for 1 hour"
+      },
+      {
+        "timeMinutes": 300,
+        "reward": "rank:Regular",
+        "description": "Played for 5 hours"
+      },
+      {
+        "timeMinutes": 600,
+        "reward": "rank:Member",
+        "description": "Played for 10 hours"
+      },
+      {
+        "timeMinutes": 1440,
+        "reward": "rank:Veteran",
+        "description": "Played for 24 hours"
+      },
+      {
+        "timeMinutes": 4320,
+        "reward": "rank:Elite",
+        "description": "Played for 72 hours"
+      },
+      {
+        "timeMinutes": 10080,
+        "reward": "rank:Legend",
+        "description": "Played for 1 week total"
+      }
+    ]
+  },
+  "welcomeMessages": {
+    "enabled": true,
+    "channelId": null,
+    "customMessage": "Welcome {player} to {server}! 🎉",
+    "motd": "Have fun and follow the rules!"
+  },
+  "logging": {
+    "detailedLogs": true,
+    "logPlayerStats": true,
+    "logCommands": true
+  },
+  "security": {
+    "enabled": true,
+    "alertChannelId": null,
+    "rapidJoinThreshold": 5,
+    "rapidJoinWindow": 2,
+    "logToFile": true
+  },
+  "deviceRestrictions": {
+    "Android": false,
+    "iOS": true,
+    "Xbox": true,
+    "Windows": false,
+    "PlayStation": true,
+    "FireOS": false,
+    "NintendoSwitch": true
+  },
+  "memberRoleId": null,
+  "welcomeChannelId": null,
+  "logChannelId": null,
+  "playerRewards": {}
+}
