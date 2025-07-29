@@ -332,9 +332,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🆘 Support
 
 For support, please:
-1. Check the documentation
-2. Search existing issues
-3. Create a new issue with detailed information
+1. Join The New Discord
+2. Message Owner
 
 ## 🔄 Version History
 
