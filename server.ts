@@ -877,58 +877,68 @@ async function spawnBot(): Promise<any> {
     client.on('text', (packet: any) => {
         if (!packet) return;
         
+        // Debug logging to see what packets we're receiving
+        log(`Text packet received: ${JSON.stringify(packet, null, 2)}`);
+        
         let playerName: string | null = null;
         let message = '';
         
         // Handle different packet types to extract player name and message
-        if (packet.source_name) {
-            // Direct source name from packet - most reliable
-            playerName = packet.source_name;
-            message = packet.message || '';
-        } else if (packet.type === 'json' && packet.message) {
+        // Priority 1: Use XUID to find player name from current players list
+        if (packet.xuid && packet.xuid !== '') {
+            // Find player by XUID in current players
+            for (const [username, playerEntry] of players.entries()) {
+                if (playerEntry.data && playerEntry.data.xbox_user_id === packet.xuid) {
+                    playerName = username;
+                    message = packet.message || '';
+                    log(`Player identified by XUID: ${playerName}`);
+                    break;
+                }
+            }
+        }
+        
+        // Priority 2: Use source_name if available and XUID lookup failed
+        if (!playerName && packet.source_name) {
+            // Verify source_name exists in current players to avoid false matches
+            const currentPlayersList = getCurrentPlayers();
+            if (currentPlayersList.has(packet.source_name)) {
+                playerName = packet.source_name;
+                message = packet.message || '';
+                log(`Player identified by source_name: ${playerName}`);
+            }
+        }
+        
+        // Priority 3: Fallback for JSON messages with complex formatting
+        if (!playerName && packet.type === 'json' && packet.message) {
             try {
                 const jsonMessage = JSON.parse(packet.message);
-                if (jsonMessage.rawtext && jsonMessage.rawtext[0] && jsonMessage.rawtext[0].text) {
-                    const fullText = jsonMessage.rawtext[0].text;
+                if (jsonMessage.rawtext && Array.isArray(jsonMessage.rawtext)) {
+                    const fullText = jsonMessage.rawtext.map((part: any) => part.text || '').join('');
                     
-                    // Try to extract message content after timestamp
-                    const timestampMatch = fullText.match(/\d+:\d+\s+[AP]M:\s*(.+)/);
-                    if (timestampMatch) {
-                        message = timestampMatch[1].trim();
-                        
-                        // Find the most recently active player as the sender
-                        const currentPlayersList = Array.from(players.keys());
-                        if (currentPlayersList.length > 0) {
-                            // Use the most recently joined/active player
-                            playerName = currentPlayersList[currentPlayersList.length - 1];
-                            log(`Chat message detected: player=${playerName}, message=${message}`);
-                        }
-                    } else {
-                        // Fallback patterns for other formats
-                        const patterns = [
-                            /§7§n\w+§r §7\| §7([^§]+)§r \d+:\d+ [AP]M: §7(.+)/,
-                            /<([^>]+)>\s*(.+)/,
-                            /([^§:]+):\s*(.+)/
-                        ];
-                        
-                        for (const pattern of patterns) {
-                            const match = fullText.match(pattern);
-                            if (match) {
-                                playerName = match[1].trim();
-                                message = match[2].trim();
-                                break;
-                            }
+                    // Simple pattern to extract player name from formatted text
+                    const match = fullText.match(/§7\| §7([^§]+)§r [0-9]+:[0-9]+ [AP]M: §7(.+)/);
+                    if (match) {
+                        const potentialPlayer = match[1].trim();
+                        const currentPlayersList = getCurrentPlayers();
+                        if (currentPlayersList.has(potentialPlayer)) {
+                            playerName = potentialPlayer;
+                            message = match[2].trim();
+                            log(`Player identified from JSON format: ${playerName}`);
                         }
                     }
                 }
-            } catch (err) {
-                log(`Error parsing JSON message: ${err}`);
+            } catch (error) {
+                // If JSON parsing fails, ignore
             }
-        } else if (packet.type === 'chat' && packet.message) {
-            const chatMatch = packet.message.match(/<([^>]+)>\s*(.+)/);
-            if (chatMatch) {
-                playerName = chatMatch[1].trim();
-                message = chatMatch[2].trim();
+        }
+        
+        // Priority 4: Fallback for chat type packets
+        if (!playerName && packet.type === 'chat') {
+            const currentPlayersList = getCurrentPlayers();
+            if (packet.source_name && currentPlayersList.has(packet.source_name)) {
+                playerName = packet.source_name;
+                message = packet.message || '';
+                log(`Player identified from chat packet: ${playerName}`);
             }
         }
         
