@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as AF from 'prismarine-auth';
 import * as bedrock from 'bedrock-protocol';
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs';
 import config from './config.json';
 import { log, sendEmbed, setClient, getPlayerRank } from './utils';
 import * as discord from 'discord.js';
@@ -67,6 +68,15 @@ interface Config {
         enabledBy: string;
         enabledAt: number;
         reason: string;
+    };
+    keywordAlerts?: {
+        enabled: boolean;
+        alertChannelId: string;
+        keywords: string[];
+    };
+    commandUsageMonitor?: {
+        enabled: boolean;
+        logChannelId: string;
     };
 }
 
@@ -288,7 +298,9 @@ async function spawnBot(): Promise<any> {
         log(`Bot spawned in server: ${activeConfig.serverName}`);
     });
     
-    client.on('command_response', (packet: any) => {
+    // Skin checks removed per user request
+     
+     client.on('command_response', (packet: any) => {
         log(`[DEBUG] Command response received:`, JSON.stringify(packet, null, 2));
     });
 
@@ -504,8 +516,7 @@ async function spawnBot(): Promise<any> {
                 typedConfig.playerStats[username].lastSeen = Date.now();
                 
                 // Save updated config
-                require('fs').writeFileSync('./config.json', JSON.stringify(typedConfig, null, 2));
-                
+                            fs.writeFileSync('./config.json', JSON.stringify(typedConfig, null, 2));                
                 log(`Player joined: ${username} on ${os}`);
                 
                 // Enhanced logging
@@ -768,8 +779,7 @@ async function spawnBot(): Promise<any> {
                             checkAndSaveMilestoneProgress(username);
                             
                             // Save updated config
-                            require('fs').writeFileSync('./config.json', JSON.stringify(typedConfig, null, 2));
-                            
+                fs.writeFileSync('./config.json', JSON.stringify(typedConfig, null, 2));                            
                             // Enhanced logging
                             if (typedConfig.logging?.detailedLogs) {
                                 const sessionMinutes = Math.round(sessionTime / 60000);
@@ -874,11 +884,15 @@ async function spawnBot(): Promise<any> {
     // --- Packet Listeners ---
     
     // Monitor text packets for chat relay to Discord
-    client.on('text', (packet: any) => {
+    // Generic packet listener removed per user request
+
+        client.on('text', async (packet: any) => {
         if (!packet) return;
         
         // Debug logging to see what packets we're receiving
         log(`Text packet received: ${JSON.stringify(packet, null, 2)}`);
+        
+        // Skin change detection removed per user request
         
         let playerName: string | null = null;
         let message = '';
@@ -949,6 +963,21 @@ async function spawnBot(): Promise<any> {
         
         // Skip command messages (messages that start with /)
         if (message.trim().startsWith('/')) {
+            if (typedConfig.commandUsageMonitor && typedConfig.commandUsageMonitor.enabled && typedConfig.commandUsageMonitor.logChannelId && discordClient) {
+                const alertChannel = await discordClient.channels.fetch(typedConfig.commandUsageMonitor.logChannelId);
+                if (alertChannel && alertChannel.isTextBased() && 'send' in alertChannel) {
+                    const embed = new discord.EmbedBuilder()
+                        .setTitle('Command Usage')
+                        .setDescription(`Player **${playerName}** used a command`)
+                        .addFields(
+                            { name: 'Player', value: playerName, inline: true },
+                            { name: 'Command', value: message, inline: true }
+                        )
+                        .setColor('#FFA500')
+                        .setTimestamp();
+                    alertChannel.send({ embeds: [embed] });
+                }
+            }
             return;
         }
         
@@ -970,6 +999,28 @@ async function spawnBot(): Promise<any> {
         
         // Relay message to Discord
         if (discordClient && activeConfig && activeConfig.logChannels && activeConfig.logChannels.chat) {
+            if (typedConfig.keywordAlerts?.enabled && typedConfig.keywordAlerts?.alertChannelId) {
+                const messageContent = message.toLowerCase();
+                for (const keyword of typedConfig.keywordAlerts.keywords) {
+                    if (messageContent.includes(keyword.toLowerCase())) {
+                        if (!discordClient) continue;
+                        const alertChannel = await discordClient.channels.fetch(typedConfig.keywordAlerts.alertChannelId);
+                        if (alertChannel && alertChannel.isTextBased() && 'send' in alertChannel) {
+                            const embed = new discord.EmbedBuilder()
+                                .setTitle('Keyword Alert')
+                                .setDescription(`Player **${playerName}** said a keyword: **${keyword}**`)
+                                .addFields(
+                                    { name: 'Player', value: playerName, inline: true },
+                                    { name: 'Message', value: message, inline: true }
+                                )
+                                .setColor('#FF0000')
+                                .setTimestamp();
+                            alertChannel.send({ embeds: [embed] });
+                        }
+                        break; // Stop after first keyword match
+                    }
+                }
+            }
             try {
                 const cleanMessage = message.replace(/§[0-9a-fk-or]/g, ''); // Remove Minecraft color codes
                 sendEmbed({
@@ -1043,8 +1094,7 @@ function kickNonAllowlistedPlayers(): number {
         return 0;
     }
 
-    const config = require('./config.json');
-    const allowlist = config.allowlist || [];
+    const allowlist = typedConfig.allowlist || [];
     let kickedCount = 0;
 
     // Get current online players
@@ -1062,7 +1112,6 @@ function kickNonAllowlistedPlayers(): number {
             kickedCount++;
             
             // Log security event
-            const securityMonitor = require('./utils/security-monitor');
             securityMonitor.logSecurityEvent(
                 'maintenance_kick',
                 username,
