@@ -1,24 +1,29 @@
 {
   "botToken": "YOUR_BOT_TOKEN_HERE",
   "clientId": "YOUR_CLIENT_ID_HERE",
-  "username": "Your Bot Name",
+  "username": "RusticAC bot",
   "servers": [
     {
       "serverName": "Your Server Name",
-      "host": "YOUR_SERVER_IP",
+      "host": "YOUR_SERVER_IP_HERE",
       "port": 19132,
       "logChannels": {
-        "chat": null,
-        "kicks": null,
-        "joinsAndLeaves": null
+        "chat": "YOUR_CHAT_CHANNEL_ID",
+        "kicks": "YOUR_KICKS_CHANNEL_ID",
+        "joinsAndLeaves": "YOUR_JOINS_LEAVES_CHANNEL_ID"
       },
       "modules": {
         "deviceFilter": true
       }
     }
   ],
-  "admins": [],
-  "whitelist": [],
+  "admins": [
+    "YOUR_ADMIN_USER_ID"
+  ],
+  "whitelist": [
+    "ExamplePlayer1",
+    "ExamplePlayer2"
+  ],
   "bannedDevices": [
     "Windows",
     "Android",
@@ -79,7 +84,7 @@
   },
   "welcomeMessages": {
     "enabled": true,
-    "channelId": null,
+    "channelId": "YOUR_WELCOME_CHANNEL_ID",
     "customMessage": "Welcome {player} to {server}! 🎉",
     "motd": "Have fun and follow the rules!"
   },
@@ -104,8 +109,18 @@
     "FireOS": false,
     "NintendoSwitch": true
   },
-  "memberRoleId": null,
-  "welcomeChannelId": null,
+  "memberRoleId": "YOUR_MEMBER_ROLE_ID",
+  "welcomeEnabled": true,
+  "welcomeChannelId": "YOUR_WELCOME_CHANNEL_ID",
   "logChannelId": null,
+  "keywordAlerts": {
+    "enabled": true,
+    "keywords": [],
+    "alertChannelId": "YOUR_ALERT_CHANNEL_ID"
+  },
+  "commandUsageMonitor": {
+    "enabled": true,
+    "logChannelId": "YOUR_LOG_CHANNEL_ID"
+  },
   "playerRewards": {}
 }
