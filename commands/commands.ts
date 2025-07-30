@@ -1,5 +1,5 @@
-import {
-    SlashCommandBuilder,
+import { log } from '../utils';
+import { SlashCommandBuilder,
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
@@ -17,7 +17,7 @@ import {
 } from 'discord.js';
 import * as fs from 'fs';
 import config from '../config.json';
-import { log } from '../utils';
+// import announcementsCommand from './announcements-command'; // File doesn't exist, commenting out
 import { kickNonAllowlistedPlayers, getCurrentPlayers } from '../server';
 import { backupManager } from '../backup';
 import { activityTracker } from '../activity';
@@ -116,7 +116,6 @@ interface Config {
     welcomeChannelId?: string | null;
     logChannelId?: string | null;
     memberRoleId?: string | null;
-    mutedRoleId?: string | null;
 }
 
 const typedConfig = config as Config;
@@ -534,8 +533,7 @@ function getRoleConfigPanel(currentConfig: Config): [EmbedBuilder, ActionRowBuil
         .setDescription('**Manage Discord roles and permissions**\n\n🎭 Set up automatic role assignment\n🔐 Configure moderation permissions\n⚡ Streamline community management')
         .addFields(
             { name: '👤 Member Role System', value: currentConfig.memberRoleId ? `\`\`\`\n🎭 Role: @${currentConfig.memberRoleId}\n✅ Status: Active\n🎯 Purpose: Member Access\n\`\`\`` : '```\n❌ Not configured\n🔧 Setup required\n📍 No member role\n```', inline: true },
-            { name: '🔇 Moderation System', value: currentConfig.mutedRoleId ? `\`\`\`\n🔇 Role: @${currentConfig.mutedRoleId}\n✅ Status: Active\n🎯 Purpose: Mute Control\n\`\`\`` : '```\n❌ Not configured\n🔧 Setup required\n📍 No muted role\n```', inline: true },
-            { name: '⚙️ Role Status', value: (currentConfig.memberRoleId && currentConfig.mutedRoleId) ? '🟢 **Fully Configured**\nAll roles set up' : (currentConfig.memberRoleId || currentConfig.mutedRoleId) ? '🟡 **Partially Configured**\nSome roles missing' : '🔴 **Not Configured**\nSetup required', inline: false }
+            { name: '⚙️ Role Status', value: currentConfig.memberRoleId ? '🟢 **Configured**\nMember role set up' : '🔴 **Not Configured**\nSetup required', inline: false }
         )
         .setColor('#9B59B6')
         .setThumbnail('https://cdn.discordapp.com/attachments/1234567890/1234567890/role_config.png')
@@ -552,16 +550,7 @@ function getRoleConfigPanel(currentConfig: Config): [EmbedBuilder, ActionRowBuil
                 .setCustomId('role_clear_member')
                 .setLabel('Clear Member Role')
                 .setStyle(ButtonStyle.Danger)
-                .setDisabled(!currentConfig.memberRoleId),
-            new ButtonBuilder()
-                .setCustomId('role_set_muted')
-                .setLabel('Set Muted Role')
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-                .setCustomId('role_clear_muted')
-                .setLabel('Clear Muted Role')
-                .setStyle(ButtonStyle.Danger)
-                .setDisabled(!currentConfig.mutedRoleId)
+                .setDisabled(!currentConfig.memberRoleId)
         );
     return [embed, row];
 }
@@ -671,7 +660,7 @@ function getRewardsManagementPanel(currentConfig: Config): [EmbedBuilder, Action
 function getSystemToolsPanel(): [EmbedBuilder, ActionRowBuilder<ButtonBuilder>] {
     const embed = new EmbedBuilder()
         .setTitle('🛠️ System Tools')
-        .setDescription('**System administration and utilities**\n\n💾 Backup management\n🔄 System maintenance\n📋 Configuration tools')
+        .setDescription('**System administration and utilities**\\n\\n💾 Backup management\\n🔄 System maintenance\\n📋 Configuration tools')
         .setColor('#95A5A6')
         .setTimestamp();
 
@@ -689,6 +678,31 @@ function getSystemToolsPanel(): [EmbedBuilder, ActionRowBuilder<ButtonBuilder>] 
                 .setCustomId('system_welcome_toggle')
                 .setLabel('Welcome Settings')
                 .setStyle(ButtonStyle.Primary)
+        );
+    return [embed, row];
+}
+
+function getAnnouncementsPanel(): [EmbedBuilder, ActionRowBuilder<ButtonBuilder>] {
+    const embed = new EmbedBuilder()
+        .setTitle('📢 Announcement Management')
+        .setDescription('**Manage scheduled announcements**')
+        .setColor('#7289DA')
+        .setTimestamp();
+
+    const row = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('announcement_add')
+                .setLabel('Add Announcement')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId('announcement_list')
+                .setLabel('List Announcements')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('announcement_remove_menu')
+                .setLabel('Remove Announcement')
+                .setStyle(ButtonStyle.Danger)
         );
     return [embed, row];
 }
@@ -733,6 +747,7 @@ const commands = [{
                 { label: 'Server Monitoring', value: 'server_monitoring' },
                 { label: 'Rewards & Milestones', value: 'rewards' },
                 { label: 'System Tools', value: 'system_tools' },
+                { label: 'Announcements', value: 'announcements' },
             ]);
 
         const selectRow = new ActionRowBuilder<StringSelectMenuBuilder>()
@@ -839,6 +854,23 @@ const commands = [{
                     });
                     return;
                 }
+
+                if (i.isStringSelectMenu() && i.customId === 'announcement_select_remove') {
+                    await i.deferUpdate();
+                    const announcementId = (i as any).values[0];
+                    let announcements = JSON.parse(fs.readFileSync('./announcements.json', 'utf-8'));
+                    const initialLength = announcements.length;
+                    announcements = announcements.filter((ann: any) => ann.id !== announcementId);
+
+                    if (announcements.length < initialLength) {
+                        fs.writeFileSync('./announcements.json', JSON.stringify(announcements, null, 2));
+                        log(`Announcement with ID ${announcementId} removed by ${i.user.tag}.`);
+                        await i.editReply({ content: 'Announcement removed successfully.', embeds: [], components: [backRow] });
+                    } else {
+                        await i.editReply({ content: 'Could not find the selected announcement to remove.', embeds: [], components: [backRow] });
+                    }
+                    return; 
+                }
                 
                 // Handle generic dashboard select menus
                 if (i.isStringSelectMenu() && i.customId === 'dashboard_select_panel') {
@@ -897,6 +929,7 @@ const commands = [{
                             panelEmbed = playerResult[0];
                             panelRows = [playerResult[1], playerResult[2]];
                             break;
+
                         case 'server_monitoring':
                             const serverResult = getServerMonitoringPanel();
                             panelEmbed = serverResult[0];
@@ -911,6 +944,11 @@ const commands = [{
                             const toolsResult = getSystemToolsPanel();
                             panelEmbed = toolsResult[0];
                             panelRows = [toolsResult[1]];
+                            break;
+                        case 'announcements':
+                            const announcementsResult = getAnnouncementsPanel();
+                            panelEmbed = announcementsResult[0];
+                            panelRows = [announcementsResult[1]];
                             break;
                         default:
                             // Don't return here - let other handlers process the interaction
@@ -1599,61 +1637,7 @@ const commands = [{
                                 });
                                 break;
                                 
-                            case 'role_set_muted':
-                                await i.deferUpdate();
-                                
-                                const mutedRoleSelectEmbed = new EmbedBuilder()
-                                    .setTitle('🔇 Select Muted Role')
-                                    .setDescription('Please select the role you want to set as the muted role from the dropdown below.')
-                                    .setColor('#E74C3C')
-                                    .setTimestamp();
-                                
-                                const mutedRoleSelect = new RoleSelectMenuBuilder()
-                                    .setCustomId('muted_role_select')
-                                    .setPlaceholder('Select a role for muted users')
-                                    .setMinValues(1)
-                                    .setMaxValues(1);
-                                
-                                await i.editReply({
-                                    embeds: [mutedRoleSelectEmbed],
-                                    components: [
-                                        new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(mutedRoleSelect),
-                                        new ActionRowBuilder<ButtonBuilder>()
-                                            .addComponents(
-                                                new ButtonBuilder()
-                                                    .setCustomId('back_to_main_dashboard')
-                                                    .setLabel('Back to Main Dashboard')
-                                                    .setStyle(ButtonStyle.Secondary)
-                                            )
-                                    ]
-                                });
-                                break;
-                                
-                            case 'role_clear_muted':
-                                await i.deferUpdate();
-                                typedConfig.mutedRoleId = null;
-                                saveConfig();
-                                log(`Muted role cleared by ${i.user.tag}.`);
-                                
-                                const mutedClearedEmbed = new EmbedBuilder()
-                                    .setTitle('✅ Muted Role Cleared')
-                                    .setDescription('Muted role has been cleared.')
-                                    .setColor('#00ff00')
-                                    .setTimestamp();
-                                
-                                await i.editReply({
-                                    embeds: [mutedClearedEmbed],
-                                    components: [
-                                        new ActionRowBuilder<ButtonBuilder>()
-                                            .addComponents(
-                                                new ButtonBuilder()
-                                                    .setCustomId('back_to_main_dashboard')
-                                                    .setLabel('Back to Main Dashboard')
-                                                    .setStyle(ButtonStyle.Secondary)
-                                            )
-                                    ]
-                                });
-                                break;
+
                                 
                             case 'player_ban':
                                 const banModal = new ModalBuilder()
@@ -1698,6 +1682,8 @@ const commands = [{
                                 
                                 await i.showModal(unbanModal);
                                 break;
+                                
+
                                 
                             case 'player_stats':
                                 const statsModal = new ModalBuilder()
@@ -1760,6 +1746,77 @@ const commands = [{
                                 viewNotesModal.addComponents(viewUsernameRow);
                                 
                                 await i.showModal(viewNotesModal);
+                                break;
+
+                            case 'announcement_add':
+                                const announcementModal = new ModalBuilder()
+                                    .setCustomId('announcement_add_submit')
+                                    .setTitle('Add Scheduled Announcement');
+
+                                const messageInput = new TextInputBuilder()
+                                    .setCustomId('announcement_message')
+                                    .setLabel('Announcement Message')
+                                    .setStyle(TextInputStyle.Paragraph)
+                                    .setPlaceholder('Enter the announcement message...')
+                                    .setRequired(true);
+
+                                const timeInput = new TextInputBuilder()
+                                    .setCustomId('announcement_time')
+                                    .setLabel('Interval (minutes)')
+                                    .setStyle(TextInputStyle.Short)
+                                    .setPlaceholder('e.g., 1 for every minute, 5 for every 5 minutes')
+                                    .setRequired(true);
+
+                                announcementModal.addComponents(
+                                    new ActionRowBuilder<TextInputBuilder>().addComponents(messageInput),
+                                    new ActionRowBuilder<TextInputBuilder>().addComponents(timeInput)
+                                );
+
+                                await i.showModal(announcementModal);
+                                break;
+
+                            case 'announcement_list':
+                                await i.deferUpdate();
+                                const announcements = JSON.parse(fs.readFileSync('./announcements.json', 'utf-8'));
+                                
+                                const listEmbed = new EmbedBuilder()
+                                    .setTitle('📢 Scheduled Announcements')
+                                    .setColor('#7289DA')
+                                    .setTimestamp();
+
+                                if (announcements.length === 0) {
+                                    listEmbed.setDescription('No announcements are currently scheduled.');
+                                } else {
+                                    announcements.forEach((ann: any, index: number) => {
+                                        listEmbed.addFields({
+                                            name: `In-Game Announcement #${index + 1}`,
+                                            value: `**Interval:** Every ${ann.cronTime} minute(s)\n**Message:** ${ann.message}`
+                                        });
+                                    });
+                                }
+
+                                await i.editReply({ embeds: [listEmbed], components: [backRow] });
+                                break;
+
+                            case 'announcement_remove_menu':
+                                await i.deferUpdate();
+                                const announcementsForRemoval = JSON.parse(fs.readFileSync('./announcements.json', 'utf-8'));
+                                if (announcementsForRemoval.length === 0) {
+                                    await i.editReply({ content: 'No announcements to remove.', embeds: [], components: [] });
+                                    return;
+                                }
+
+                                const selectMenu = new StringSelectMenuBuilder()
+                                    .setCustomId('announcement_select_remove')
+                                    .setPlaceholder('Select an announcement to remove')
+                                    .addOptions(announcementsForRemoval.map((ann: any, index: number) => ({
+                                        label: `In-Game Announcement #${index + 1}`,
+                                        value: ann.id, // Use the unique ID
+                                        description: ann.message.substring(0, 50)
+                                    })));
+
+                                const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+                                await i.editReply({ content: 'Select an announcement to remove:', components: [row, backRow] });
                                 break;
                                 
                             case 'server_uptime':
@@ -2050,7 +2107,7 @@ const commands = [{
                                     .setPlaceholder('e.g., Special title for dedicated players')
                                     .setRequired(true);
                                 
-                                const timeInput = new TextInputBuilder()
+                                const rewardTimeInput = new TextInputBuilder()
                                     .setCustomId('reward_time_input')
                                     .setLabel('Required Playtime (minutes)')
                                     .setStyle(TextInputStyle.Short)
@@ -2059,7 +2116,7 @@ const commands = [{
                                 
                                 const rewardRow = new ActionRowBuilder<TextInputBuilder>().addComponents(rewardInput);
                                 const descriptionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput);
-                                const timeRow = new ActionRowBuilder<TextInputBuilder>().addComponents(timeInput);
+                                const timeRow = new ActionRowBuilder<TextInputBuilder>().addComponents(rewardTimeInput);
                                 
                                 addMilestoneModal.addComponents(rewardRow, descriptionRow, timeRow);
                                 
@@ -2541,32 +2598,6 @@ const commands = [{
                     
                     await i.editReply({
                         embeds: [memberRoleSetEmbed],
-                        components: [
-                            new ActionRowBuilder<ButtonBuilder>()
-                                .addComponents(
-                                    new ButtonBuilder()
-                                        .setCustomId('back_to_main_dashboard')
-                                        .setLabel('Back to Main Dashboard')
-                                        .setStyle(ButtonStyle.Secondary)
-                                )
-                        ]
-                    });
-                } else if (i.isRoleSelectMenu() && i.customId === 'muted_role_select') {
-                    // Handle muted role selection
-                    await i.deferUpdate();
-                    const selectedRoleId = (i as any).values[0];
-                    typedConfig.mutedRoleId = selectedRoleId;
-                    saveConfig();
-                    log(`Muted role set to ${selectedRoleId} by ${i.user.tag}.`);
-                    
-                    const mutedRoleSetEmbed = new EmbedBuilder()
-                        .setTitle('✅ Muted Role Set')
-                        .setDescription(`Muted role set to <@&${selectedRoleId}>.`)
-                        .setColor('#00ff00')
-                        .setTimestamp();
-                    
-                    await i.editReply({
-                        embeds: [mutedRoleSetEmbed],
                         components: [
                             new ActionRowBuilder<ButtonBuilder>()
                                 .addComponents(
