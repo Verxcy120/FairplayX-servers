@@ -5,7 +5,7 @@ import config from './config.json';
 import * as server from './server';
 import { log, sendEmbed } from './utils';
 import commands, { saveConfig } from './commands/commands';
-import { autoUpdater } from './auto-update';
+import './announcements';
 
 // Extend the Discord Client type to include commands
 declare module 'discord.js' {
@@ -61,11 +61,15 @@ interface Config {
   welcomeChannelId?: string | null;
   logChannelId?: string | null;
   memberRoleId?: string | null;
-  mutedRoleId?: string | null;
 
   servers?: Array<{
+    serverName?: string;
+    serverIp?: string;
+    serverPort?: number;
     logChannels?: {
-      chat?: string;
+      chat?: string | null;
+      kicks?: string | null;
+      joinsAndLeaves?: string | null;
     };
   }>;
   allowlist?: string[];
@@ -160,6 +164,8 @@ client.on('interactionCreate', async (interaction: discord.Interaction) => {
         return;
     }
 
+
+
     // Handle modal submissions
     if (interaction.isModalSubmit()) {
         console.log(`Global modal submit received: ${interaction.customId}`);
@@ -170,11 +176,24 @@ client.on('interactionCreate', async (interaction: discord.Interaction) => {
             interaction.customId === 'view_notes_submit' || interaction.customId === 'alt_adjust_gamerscore_submit' ||
             interaction.customId === 'alt_adjust_friends_submit' || interaction.customId === 'alt_adjust_followers_submit' ||
             interaction.customId === 'rewards_add_milestone_submit' || interaction.customId === 'rewards_remove_milestone_submit' ||
-            interaction.customId === 'maintenance_reason_modal') {
+            interaction.customId === 'maintenance_reason_modal' || interaction.customId === 'announcement_add_submit') {
             try {
                 await interaction.deferUpdate();
                 
                 switch (interaction.customId) {
+                    case 'announcement_add_submit':
+                        const message = interaction.fields.getTextInputValue('announcement_message');
+                        const cronTime = interaction.fields.getTextInputValue('announcement_time');
+                        const announcements = JSON.parse(fs.readFileSync('./announcements.json', 'utf-8'));
+                        const newAnnouncement = {
+                            id: Date.now().toString(),
+                            message,
+                            cronTime
+                        };
+                        announcements.push(newAnnouncement);
+                        fs.writeFileSync('./announcements.json', JSON.stringify(announcements, null, 2));
+                        await interaction.editReply({ content: `In-game announcement added successfully! Will repeat every ${cronTime} minute(s).` });
+                        break;
                     case 'admin_add_submit':
                         const userIdInput = interaction.fields.getTextInputValue('admin_user_input');
                         let userId = userIdInput;
@@ -406,6 +425,7 @@ client.on('interactionCreate', async (interaction: discord.Interaction) => {
                         });
                         break;
                         
+
                     case 'player_stats_submit':
                         const statsPlayerName = interaction.fields.getTextInputValue('stats_username_input');
                         
@@ -751,7 +771,21 @@ client.on('interactionCreate', async (interaction: discord.Interaction) => {
 });
 
 // Handle messages and commands
-client.on('messageCreate', (message: discord.Message): void => {
+client.on('guildMemberAdd', async (member) => {
+    if (!typedConfig.welcomeEnabled) return;
+
+    const welcomeChannelId = typedConfig.welcomeChannelId;
+    if (!welcomeChannelId) return;
+
+    const channel = await client.channels.fetch(welcomeChannelId);
+    if (!channel || !channel.isTextBased()) return;
+
+    if (!channel || !('send' in channel) || !channel.isTextBased()) return;
+
+    const welcomeMessage = `Welcome to the server, ${member.user.username}!`;
+    channel.send(welcomeMessage);
+});
+client.on('messageCreate', async (message) => {
     const { content, author, channel } = message;
     if (author.bot) return;
 
